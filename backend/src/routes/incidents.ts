@@ -6,7 +6,7 @@ import { RootCauseAnalyzer } from '../ai/rootCause';
 import { ReportGenerator } from '../ai/reportGenerator';
 import { GitHubConnector } from '../connectors/github';
 import axios from 'axios';
-import { IncidentCard, ApiResponse } from '../../../shared/types';
+import { IncidentCard, ApiResponse, SuggestedFix, IncidentCorrelation } from '../../../shared/types';
 import { eq, and, desc, count } from 'drizzle-orm';
 
 const router = Router();
@@ -24,10 +24,10 @@ function rowToIncident(r: typeof incidents.$inferSelect): IncidentCard {
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
     rootCause: r.rootCause,
-    suggestedFixes: (r.fixes as string[]) ?? [],
-    correlations: (r.correlations as string[]) ?? [],
-    affectedServices: (r.affectedServices as string[]) ?? [],
-    tags: (r.tags as string[]) ?? [],
+    suggestedFixes: (r.fixes as unknown as SuggestedFix[]) ?? [],
+    correlations: (r.correlations as unknown as IncidentCorrelation[]) ?? [],
+    affectedServices: (r.affectedServices as unknown as string[]) ?? [],
+    tags: (r.tags as unknown as string[]) ?? [],
     rawData: r.rawData as Record<string, unknown> | undefined,
     githubIssueUrl: r.githubIssueUrl ?? undefined,
     slackThreadUrl: r.slackThreadUrl ?? undefined,
