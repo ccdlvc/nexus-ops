@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { connectorsApi } from '../services/api';
 import { GithubRepo, RepoSummary, WorkflowRun } from '@shared/types';
 
@@ -11,22 +11,53 @@ const LANG_COLOR: Record<string, string> = {
   Go: '#00ADD8', Java: '#b07219', Rust: '#dea584', Ruby: '#701516',
 };
 
+const REPO_POLL_MS   = 60_000;  // repo list refresh interval
+const PANEL_POLL_MS  = 30_000;  // expanded panel refresh interval
+const ACTIVE_POLL_MS = 10_000;  // faster refresh when runs are in_progress
+
 export default function ReposPage() {
-  const [repos, setRepos] = useState<GithubRepo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const [repos, setRepos]           = useState<GithubRepo[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [error, setError]           = useState('');
+  const [search, setSearch]         = useState('');
   const [langFilter, setLangFilter] = useState('');
   const [expandedRepo, setExpandedRepo] = useState<string | null>(null);
+  const [tick, setTick]             = useState(0);  // drives "X sec ago" counter
 
-  useEffect(() => {
-    setLoading(true);
-    connectorsApi.githubListRepos()
-      .then(setRepos)
-      .catch(() => setError('Could not fetch repositories. Check GITHUB_TOKEN is configured.'))
-      .finally(() => setLoading(false));
+  const fetchRepos = useCallback(async (isBackground = false) => {
+    if (isBackground) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const data = await connectorsApi.githubListRepos();
+      setRepos(data);
+      setLastUpdated(new Date());
+      setError('');
+    } catch {
+      if (!isBackground) setError('Could not fetch repositories. Check GITHUB_TOKEN is configured.');
+    } finally {
+      if (isBackground) setRefreshing(false);
+      else setLoading(false);
+    }
   }, []);
 
+  // initial load
+  useEffect(() => { fetchRepos(false); }, [fetchRepos]);
+
+  // background polling every 60 s
+  useEffect(() => {
+    const id = setInterval(() => fetchRepos(true), REPO_POLL_MS);
+    return () => clearInterval(id);
+  }, [fetchRepos]);
+
+  // tick every second to update "X sec ago" label
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const secsAgo = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 1000) : null;
   const languages = Array.from(new Set(repos.map((r) => r.language).filter(Boolean))) as string[];
 
   const filtered = repos.filter((r) => {
@@ -41,9 +72,16 @@ export default function ReposPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: '#e6edf3', margin: 0 }}>GitHub Repositories</h1>
-          <p style={{ fontSize: 13, color: '#8b949e', margin: '4px 0 0' }}>
-            {repos.length} repos accessible · click any repo to see DevOps details
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <p style={{ fontSize: 13, color: '#8b949e', margin: 0 }}>
+              {repos.length} repos accessible · click any repo to see DevOps details
+            </p>
+            {secsAgo !== null && (
+              <span style={{ fontSize: 11, color: refreshing ? '#58a6ff' : '#484f58' }}>
+                {refreshing ? '⟳ refreshing…' : `· updated ${secsAgo}s ago`}
+              </span>
+            )}
+          </div>
         </div>
         <input
           value={search} onChange={(e) => setSearch(e.target.value)}
@@ -55,6 +93,18 @@ export default function ReposPage() {
           <option value=''>All languages</option>
           {languages.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
+        <button
+          onClick={() => fetchRepos(true)}
+          disabled={refreshing || loading}
+          title="Refresh now"
+          style={{
+            padding: '7px 12px', borderRadius: 6, border: '1px solid #30363d',
+            background: '#21262d', color: '#e6edf3', fontSize: 12, cursor: 'pointer',
+            opacity: refreshing || loading ? 0.5 : 1,
+          }}
+        >
+          {refreshing ? '⟳' : '↺ Refresh'}
+        </button>
       </div>
 
       {error && <div style={{ padding: '12px 16px', background: '#f8514922', border: '1px solid #f8514944', borderRadius: 8, color: '#f85149', fontSize: 13, marginBottom: 16 }}>{error}</div>}
@@ -80,25 +130,45 @@ export default function ReposPage() {
 }
 
 function RepoRow({ repo, expanded, onToggle }: { repo: GithubRepo; expanded: boolean; onToggle: () => void }) {
-  const [summary, setSummary] = useState<RepoSummary | null>(null);
+  const [summary, setSummary]             = useState<RepoSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'runs' | 'commits' | 'issues' | 'prs' | 'branches'>('runs');
+  const [silentRefreshing, setSilentRefreshing] = useState(false);
+  const [activeTab, setActiveTab]         = useState<'runs' | 'commits' | 'issues' | 'prs' | 'branches'>('runs');
   const langColor = LANG_COLOR[repo.language ?? ''] ?? '#8b949e';
+  const loadingRef = useRef(false);
 
-  const load = useCallback(async () => {
-    if (summary || summaryLoading) return;
-    setSummaryLoading(true);
+  const hasActiveRun = summary?.recentRuns.some((r) => r.status === 'in_progress' || r.status === 'queued') ?? false;
+  const pollInterval = hasActiveRun ? ACTIVE_POLL_MS : PANEL_POLL_MS;
+
+  const fetchSummary = useCallback(async (silent = false) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    if (silent) setSilentRefreshing(true);
+    else setSummaryLoading(true);
     try {
       const s = await connectorsApi.githubRepoSummary(repo.owner, repo.name);
       setSummary(s);
     } catch { /* ignore */ }
-    finally { setSummaryLoading(false); }
-  }, [repo.owner, repo.name, summary, summaryLoading]);
+    finally {
+      loadingRef.current = false;
+      if (silent) setSilentRefreshing(false);
+      else setSummaryLoading(false);
+    }
+  }, [repo.owner, repo.name]);
 
-  const handleToggle = () => {
-    if (!expanded) load();
-    onToggle();
-  };
+  // load on expand
+  useEffect(() => {
+    if (expanded) fetchSummary(false);
+  }, [expanded, fetchSummary]);
+
+  // auto-refresh while expanded; faster when runs are active
+  useEffect(() => {
+    if (!expanded) return;
+    const id = setInterval(() => fetchSummary(true), pollInterval);
+    return () => clearInterval(id);
+  }, [expanded, pollInterval, fetchSummary]);
+
+  const handleToggle = () => onToggle();
 
   return (
     <div style={{ borderRadius: 10, border: '1px solid #30363d', background: '#161b22', overflow: 'hidden' }}>
@@ -135,28 +205,52 @@ function RepoRow({ repo, expanded, onToggle }: { repo: GithubRepo; expanded: boo
       {/* Expanded DevOps panel */}
       {expanded && (
         <div style={{ borderTop: '1px solid #21262d' }}>
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #21262d', padding: '0 16px', gap: 4 }}>
-            {(['runs', 'commits', 'issues', 'prs', 'branches'] as const).map((tab) => {
-              const labels = { runs: '⚡ Workflows', commits: '📦 Commits', issues: '🔴 Issues', prs: '🔀 Pull Requests', branches: '🌿 Branches' };
-              const counts: Partial<Record<typeof tab, number>> = {
-                runs: summary?.recentRuns.length,
-                commits: summary?.recentCommits.length,
-                issues: summary?.openIssues.length,
-                prs: summary?.openPRs.length,
-                branches: summary?.branches.length,
-              };
-              return (
-                <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                  padding: '8px 12px', fontSize: 12, fontWeight: activeTab === tab ? 700 : 400,
-                  color: activeTab === tab ? '#58a6ff' : '#8b949e',
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  borderBottom: activeTab === tab ? '2px solid #58a6ff' : '2px solid transparent',
-                }}>
-                  {labels[tab]}{counts[tab] !== undefined ? ` (${counts[tab]})` : ''}
-                </button>
-              );
-            })}
+          {/* Tabs + refresh indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #21262d', padding: '0 16px', gap: 4 }}>
+            <div style={{ flex: 1, display: 'flex', gap: 4 }}>
+              {(['runs', 'commits', 'issues', 'prs', 'branches'] as const).map((tab) => {
+                const labels = { runs: '⚡ Workflows', commits: '📦 Commits', issues: '🔴 Issues', prs: '🔀 Pull Requests', branches: '🌿 Branches' };
+                const counts: Partial<Record<typeof tab, number>> = {
+                  runs: summary?.recentRuns.length,
+                  commits: summary?.recentCommits.length,
+                  issues: summary?.openIssues.length,
+                  prs: summary?.openPRs.length,
+                  branches: summary?.branches.length,
+                };
+                return (
+                  <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                    padding: '8px 12px', fontSize: 12, fontWeight: activeTab === tab ? 700 : 400,
+                    color: activeTab === tab ? '#58a6ff' : '#8b949e',
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    borderBottom: activeTab === tab ? '2px solid #58a6ff' : '2px solid transparent',
+                  }}>
+                    {labels[tab]}{counts[tab] !== undefined ? ` (${counts[tab]})` : ''}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* per-panel refresh controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {silentRefreshing && (
+                <span style={{ fontSize: 11, color: '#58a6ff' }}>⟳ refreshing…</span>
+              )}
+              {hasActiveRun && !silentRefreshing && (
+                <span style={{ fontSize: 10, color: '#d29922' }}>● live</span>
+              )}
+              <button
+                onClick={() => fetchSummary(true)}
+                disabled={summaryLoading || silentRefreshing}
+                title={`Auto-refreshes every ${pollInterval / 1000}s`}
+                style={{
+                  fontSize: 11, padding: '3px 8px', borderRadius: 4,
+                  background: '#21262d', color: '#8b949e', border: '1px solid #30363d',
+                  cursor: 'pointer', opacity: summaryLoading || silentRefreshing ? 0.5 : 1,
+                }}
+              >
+                ↺ {pollInterval / 1000}s
+              </button>
+            </div>
           </div>
 
           <div style={{ padding: '16px', maxHeight: 380, overflowY: 'auto' }}>
