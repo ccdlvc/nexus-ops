@@ -34,7 +34,7 @@ export class AIAgent {
       logger.info('AI Agent using OpenAI GPT-4o');
     } else if (process.env.GEMINI_API_KEY) {
       this.gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      this.model = process.env.GEMINI_MODEL ?? 'gemini-1.5-pro';
+      this.model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
       logger.info('AI Agent using Google Gemini');
     } else {
       this.model = 'stub';
