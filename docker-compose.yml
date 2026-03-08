@@ -137,9 +137,12 @@ services:
       - GF_SERVER_ROOT_URL=http://localhost:3001
       # Allow dashboards to be embedded in iframes by the Nexus Ops dashboard
       - GF_SECURITY_ALLOW_EMBEDDING=true
-      # Anonymous viewer access so iframe embeds load without a login prompt.
-      # Set GF_AUTH_ANONYMOUS_ENABLED=false if you prefer requiring login first.
-      - GF_AUTH_ANONYMOUS_ENABLED=${GF_AUTH_ANONYMOUS_ENABLED:-true}
+      # Disable SameSite cookie restriction so session cookies work inside cross-origin iframes
+      # (browser treats localhost:3000 → localhost:3001 as cross-site and blocks Lax cookies)
+      - GF_SECURITY_COOKIE_SAMESITE=disabled
+      # Anonymous viewer access so iframe embeds load without a login prompt
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
     volumes:
       - grafana-data:/var/lib/grafana
