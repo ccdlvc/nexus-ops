@@ -1,13 +1,28 @@
+/**
+ * @module routes/incidents
+ * @description REST API routes for incident management.
+ *
+ * Endpoints:
+ *   GET    /api/incidents                  – Paginated list with status/severity filters.
+ *   GET    /api/incidents/:id              – Single incident by ID.
+ *   POST   /api/incidents                  – Create incident via AI root cause analysis.
+ *   PATCH  /api/incidents/:id/status       – Update status. When resolved/suppressed, also
+ *                                            sets resolvedAt on linked open alerts so the
+ *                                            bell badge count decreases immediately.
+ *   POST   /api/incidents/:id/report       – Generate multi-format incident report.
+ *   POST   /api/incidents/:id/github-issue – Create GitHub issue and store the URL.
+ *   POST   /api/incidents/:id/slack        – Post Slack notification via webhook.
+ */
 import { Router, Request, Response } from 'express';
 import { db } from '../storage/db';
-import { incidents } from '../storage/schema';
+import { incidents, alerts as alertsTable } from '../storage/schema';
 import { AIAgent } from '../ai/agent';
 import { RootCauseAnalyzer } from '../ai/rootCause';
 import { ReportGenerator } from '../ai/reportGenerator';
 import { GitHubConnector } from '../connectors/github';
 import axios from 'axios';
 import { IncidentCard, ApiResponse, SuggestedFix, IncidentCorrelation } from '../../../shared/types';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, count, isNull } from 'drizzle-orm';
 
 const router = Router();
 const agent = new AIAgent();
@@ -116,6 +131,17 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
     await db.update(incidents)
       .set({ status, updatedAt: new Date() })
       .where(eq(incidents.id, req.params.id));
+
+    // When closing an incident, also resolve every linked open alert so the
+    // bell badge and active-alerts list clear immediately.
+    if (status === 'resolved' || status === 'suppressed') {
+      await db.update(alertsTable)
+        .set({ resolvedAt: new Date() })
+        .where(and(
+          eq(alertsTable.incidentId, req.params.id),
+          isNull(alertsTable.resolvedAt),
+        ));
+    }
 
     res.json({ success: true, data: { id: req.params.id, status }, timestamp: new Date().toISOString() });
   } catch (err) {

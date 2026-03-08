@@ -1,3 +1,23 @@
+/**
+ * @module services/api
+ * @description Typed Axios API client for all Nexus Ops backend endpoints.
+ *
+ * Organized into named sub-clients by domain:
+ *   incidentsApi   – Incident CRUD, status updates, report/issue/Slack generation.
+ *   alertsApi      – Active alerts, acknowledge, resolve, rule management.
+ *   queryApi       – Natural language DevOps query (AI assistant).
+ *   connectorsApi  – All connector pass-throughs: Jenkins, Kibana, GitHub,
+ *                    Portainer (multi-endpoint), Prometheus, Grafana.
+ *   integrationsApi – /api/integrations/status health check.
+ *   prometheusApi  – PromQL instant/range queries, labels, metric names, targets.
+ *   grafanaApi     – Health, dashboards, datasources, alert instances/rules.
+ *   awsApi         – EC2, ECS, Lambda, costs.
+ *   gcpApi         – Compute, GKE, Cloud Run, logging.
+ *   azureApi       – VMs, AKS, costs.
+ *
+ * Base URL is controlled by VITE_API_URL env var (empty string = same origin).
+ * All requests time out after 30 seconds.
+ */
 import axios from 'axios';
 import {
   IncidentCard, Alert, AlertRule, QueryResponse, IncidentReport,

@@ -1,3 +1,19 @@
+/**
+ * @module ai/anomalyDetection
+ * @description Statistical and AI-assisted anomaly detection across all data sources.
+ *
+ * The AnomalyDetector class evaluates three streams in parallel:
+ *   - Portainer containers: memory %, CPU %, restart count
+ *   - Jenkins builds: failure rate, slow test suites
+ *   - Kibana error trends: per-service spike detection
+ *
+ * When two or more rule-based anomalies are found, a secondary AI pass
+ * (aiPatternDetect) looks for cross-source cascade patterns.
+ *
+ * Each AnomalyResult carries optional `resourceName` and `endpointName`
+ * fields so that the alert monitor can build rich incident titles like
+ * "High Memory: nexus-backend on production-server".
+ */
 import { AIAgent } from './agent';
 import { AnomalyResult, ContainerHealth, BuildResult, ErrorTrend, Severity } from '../../../shared/types';
 import { v4 as uuidv4 } from 'uuid';

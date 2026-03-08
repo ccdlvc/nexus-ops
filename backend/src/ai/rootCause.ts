@@ -1,3 +1,15 @@
+/**
+ * @module ai/rootCause
+ * @description AI-powered root cause analysis engine.
+ *
+ * RootCauseAnalyzer.analyze() accepts raw context from any combination of
+ * Jenkins, Kibana, GitHub Actions, and Portainer, then asks the configured
+ * AI provider to return a structured JSON incident card with title, summary,
+ * severity, root cause, suggested fixes, and correlations.
+ *
+ * The response is parsed and validated; missing fields fall back to sensible
+ * defaults so an IncidentCard is always returned even if AI generation fails.
+ */
 import { AIAgent } from './agent';
 import { IncidentCard, BuildResult, LogEntry, WorkflowRun, ContainerHealth, IncidentCorrelation, SuggestedFix, Severity } from '../../../shared/types';
 import { v4 as uuidv4 } from 'uuid';

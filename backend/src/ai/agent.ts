@@ -1,3 +1,15 @@
+/**
+ * @module ai/agent
+ * @description Provider-agnostic AI wrapper for Nexus Ops.
+ *
+ * Selects the active AI provider at construction time based on environment
+ * variables:
+ *   - ANTHROPIC_API_KEY → uses Claude (default model: claude-opus-4-6)
+ *   - OPENAI_API_KEY    → uses GPT-4o (default model: gpt-4o)
+ *   - neither set       → stub mode (returns a JSON hint to configure a key)
+ *
+ * Consumed by: RootCauseAnalyzer, AnomalyDetector, ReportGenerator, query route.
+ */
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { QueryResponse, DataSource } from '../../../shared/types';

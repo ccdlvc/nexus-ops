@@ -1,3 +1,13 @@
+/**
+ * @module storage/seed
+ * @description Seeds the 16 default alert rules on first run.
+ *
+ * Rules cover: Portainer container health (memory, CPU, restart loops),
+ * Jenkins build metrics (failure rate, slow tests), Kibana error counts,
+ * and cloud resource counts/costs for AWS, GCP, and Azure.
+ *
+ * Uses onConflictDoNothing so re-seeding on restart is safe.
+ */
 import { db } from './db';
 import { alertRules } from './schema';
 import { logger } from '../utils/logger';

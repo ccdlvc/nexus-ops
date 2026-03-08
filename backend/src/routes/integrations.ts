@@ -1,3 +1,14 @@
+/**
+ * @module routes/integrations
+ * @description Miscellaneous integration helper routes.
+ *
+ * Endpoints:
+ *   POST /api/integrations/slack  – Direct Slack webhook post (text or blocks).
+ *   POST /api/integrations/teams  – Direct MS Teams webhook post (Adaptive Card).
+ *   GET  /api/integrations/status – Health-checks all configured integrations in
+ *                                   parallel and returns a per-service summary.
+ *                                   Used by the Settings page connection status cards.
+ */
 import { Router } from 'express';
 import axios from 'axios';
 

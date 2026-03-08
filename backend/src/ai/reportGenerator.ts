@@ -1,3 +1,16 @@
+/**
+ * @module ai/reportGenerator
+ * @description Multi-format incident report generator.
+ *
+ * Given an IncidentCard, generates four report formats in a single call:
+ *   - markdownReport    – AI-authored long-form Markdown for documentation.
+ *   - githubIssueBody   – AI-authored GitHub issue body with acceptance criteria.
+ *   - slackBlocks       – Slack Block Kit payload for channel notifications.
+ *   - teamsAdaptiveCard – Microsoft Teams Adaptive Card payload.
+ *
+ * Both AI-generated formats fall back to deterministic templates when the AI
+ * call fails or no API key is configured, so reports are always produced.
+ */
 import { AIAgent } from './agent';
 import { IncidentCard, IncidentReport } from '../../../shared/types';
 import { logger } from '../utils/logger';

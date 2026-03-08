@@ -1,3 +1,14 @@
+/**
+ * @module storage/db
+ * @description Drizzle ORM client and migration runner.
+ *
+ * Exports:
+ *   db      – The Drizzle query client (used throughout the app for all DB ops).
+ *   initDb  – Runs pending Drizzle migrations then seeds default alert rules.
+ *             Called once at server startup before routes are registered.
+ *
+ * Requires DATABASE_URL environment variable (postgres connection string).
+ */
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';

@@ -1,3 +1,19 @@
+/**
+ * @module routes/alerts
+ * @description REST API routes for alert instances and alert rules.
+ *
+ * Alert instance endpoints:
+ *   GET   /api/alerts                    – Active (unresolved) alerts; ?resolved=true for all.
+ *   PATCH /api/alerts/:id/acknowledge    – Mark alert as acknowledged.
+ *   PATCH /api/alerts/:id/resolve        – Set resolvedAt; removes from active list.
+ *
+ * Alert rule endpoints:
+ *   GET   /api/alerts/rules              – All configured alert rules.
+ *   PATCH /api/alerts/rules/:id          – Toggle enabled state or update threshold.
+ *
+ * The frontend AlertsContext fetches active alerts (resolvedAt IS NULL) to
+ * drive the notification bell badge.
+ */
 import { Router, Request, Response } from 'express';
 import { db } from '../storage/db';
 import { alerts, alertRules } from '../storage/schema';

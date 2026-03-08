@@ -1,3 +1,26 @@
+/**
+ * @module shared/types
+ * @description Single source of truth for all shared TypeScript types.
+ *
+ * Used by backend (routes, connectors, AI layer), dashboard (pages, services),
+ * and the Chrome extension. Organised into domain sections:
+ *   - Primitives: Severity, IncidentStatus, DataSource
+ *   - Build/CI: BuildResult, TestReport, SlowTest
+ *   - Kibana / Elasticsearch: LogEntry, ErrorTrend, AnomalyResult
+ *   - GitHub Actions: WorkflowRun, WorkflowJob, WorkflowStep, GitCommit
+ *   - Portainer / Docker: ContainerHealth, ServiceHealth
+ *   - Incidents: IncidentCorrelation, SuggestedFix, IncidentCard
+ *   - Alerts: AlertRule, Alert
+ *   - AI Responses: QueryResponse, IncidentReport
+ *   - GitHub Repository: GithubRepo, GithubIssue, GithubPullRequest, RepoSummary
+ *   - Portainer Endpoint: PortainerEndpoint, EndpointSummary
+ *   - API Payloads: ApiResponse, PaginatedResponse, ConnectorConfig
+ *   - Prometheus: PrometheusMetricValue, PrometheusInstantResult, PrometheusRangeResult
+ *   - Grafana: GrafanaDashboard, GrafanaDatasource, GrafanaHealth, GrafanaAlertInstance, GrafanaAlertRule
+ *   - AWS: AWSEC2Instance, AWSECSCluster, AWSECSService, AWSLambdaFunction, AWSCostSummary
+ *   - GCP: GCPInstance, GKECluster, CloudRunService, GCPTimeSeries
+ *   - Azure: AzureVM, AzureAKSCluster, AzureMetricSeries, AzureCostSummary
+ */
 // ─── Shared Domain Types ────────────────────────────────────────────────────
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';

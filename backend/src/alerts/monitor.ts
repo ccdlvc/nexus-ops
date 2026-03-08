@@ -1,3 +1,23 @@
+/**
+ * @module alerts/monitor
+ * @description Background alert polling engine.
+ *
+ * AlertMonitor runs on a 2-minute cron schedule and:
+ *   1. Fetches live metrics from every configured connector (Portainer, Jenkins,
+ *      Kibana, AWS, GCP, Azure, Grafana) with graceful per-source fallback.
+ *   2. Runs AnomalyDetector across the raw data.
+ *   3. Evaluates the database alert rules against measured values.
+ *   4. Deduplicates alerts: skips if an identical rule fired within 10 minutes.
+ *      For Portainer, deduplication is per container+rule so that a memory
+ *      spike on container A does not suppress an alert for container B.
+ *   5. Persists new alerts and matching incidents to PostgreSQL in a single
+ *      atomic transaction.
+ *   6. Separately ingests firing Grafana Alertmanager alerts (bypassing rules).
+ *   7. Broadcasts every new alert over WebSocket to all connected clients.
+ *
+ * Singleton connectors are created once per AlertMonitor instance and reused
+ * across all poll cycles.
+ */
 import { WebSocketServer, WebSocket } from 'ws';
 import schedule from 'node-schedule';
 import { v4 as uuidv4 } from 'uuid';

@@ -1,7 +1,21 @@
+/**
+ * @module components/IncidentCard
+ * @description Collapsible incident summary card used in the Incidents list view.
+ *
+ * Displays severity, status, summary, affected services and timestamp in the
+ * collapsed header. Expands to show root cause, correlated sources, suggested
+ * fixes, and action buttons (GitHub Issue, Slack, Report, Mark Investigating,
+ * Resolve).
+ *
+ * doAction() wraps every async action with loading state and, when the action
+ * closes the incident (resolve), calls refreshAlerts() so the bell badge in
+ * NavBar updates without requiring a page refresh.
+ */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IncidentCard as IncidentCardType } from '@shared/types';
 import { incidentsApi } from '../services/api';
+import { useAlerts } from '../hooks/useAlerts';
 
 interface Props {
   incident: IncidentCardType;
@@ -18,13 +32,20 @@ const SRC_ICON: Record<string, string> = {
 
 export default function IncidentCard({ incident, onUpdate }: Props) {
   const navigate = useNavigate();
+  const { refresh: refreshAlerts } = useAlerts();
   const [expanded, setExpanded] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const color = SEV_COLOR[incident.severity] ?? '#8b949e';
 
-  async function doAction(action: string, fn: () => Promise<unknown>) {
+  async function doAction(action: string, fn: () => Promise<unknown>, closesIncident = false) {
     setActionLoading(action);
-    try { await fn(); onUpdate?.(); } catch { /* ignore */ }
+    try {
+      await fn();
+      onUpdate?.();
+      // After resolving/suppressing, the backend also resolves linked alerts;
+      // refresh the alerts context so the bell badge and dropdown update immediately
+      if (closesIncident) await refreshAlerts();
+    } catch { /* ignore */ }
     finally { setActionLoading(''); }
   }
 
@@ -131,7 +152,7 @@ export default function IncidentCard({ incident, onUpdate }: Props) {
                 label="✅ Resolve"
                 clicking={actionLoading === 'res'}
                 color='#238636'
-                onClick={() => doAction('res', () => incidentsApi.setStatus(incident.id, 'resolved'))}
+                onClick={() => doAction('res', () => incidentsApi.setStatus(incident.id, 'resolved'), true)}
               />
             )}
           </div>

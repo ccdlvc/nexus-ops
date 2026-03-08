@@ -1,3 +1,18 @@
+/**
+ * @module index
+ * @description Nexus Ops backend entrypoint.
+ *
+ * Bootstraps the Express + WebSocket server:
+ *   1. Runs Drizzle database migrations and seeds default alert rules.
+ *   2. Mounts all API route groups under /api.
+ *   3. Starts the AlertMonitor background job (polls every 2 min).
+ *   4. Exposes /health (liveness) and /metrics (Prometheus scrape) endpoints.
+ *   5. Upgrades the HTTP server with a WebSocket server to push live alerts.
+ *
+ * Environment variables consumed here:
+ *   PORT             – TCP port to listen on (default 4000)
+ *   ALLOWED_ORIGINS  – Comma-separated CORS allow-list (default *)
+ */
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

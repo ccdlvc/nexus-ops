@@ -1,3 +1,23 @@
+/**
+ * @module routes/connectors
+ * @description Pass-through REST routes for every external connector.
+ *
+ * All connector singletons are created once at module load time and reused
+ * across requests. Each route group is guarded by a configuration check
+ * (e.g. JENKINS_URL must be set) and returns HTTP 503 when the service is
+ * unconfigured, allowing the frontend to degrade gracefully.
+ *
+ * Route groups:
+ *   /api/connectors/jenkins/*    – Jobs, builds, build detail, trigger
+ *   /api/connectors/kibana/*     – Recent errors, trends, anomalies, KQL query
+ *   /api/connectors/github/*     – Repos, summaries, runs, commits, issues, PRs, branches
+ *   /api/connectors/portainer/*  – Endpoints, containers, stacks, logs, start/stop/restart
+ *   /api/connectors/prometheus/* – PromQL instant/range queries, labels, targets
+ *   /api/connectors/grafana/*    – Health, dashboards, datasources, alert instances/rules
+ *   /api/connectors/aws/*        – EC2, ECS clusters/services, Lambda, CloudWatch, costs
+ *   /api/connectors/gcp/*        – Compute Engine, GKE, Cloud Run, Monitoring, Logging
+ *   /api/connectors/azure/*      – VMs, AKS, Monitor metrics, Log Analytics, costs
+ */
 import { Router, Response } from 'express';
 import { JenkinsConnector } from '../connectors/jenkins';
 import { KibanaConnector } from '../connectors/kibana';

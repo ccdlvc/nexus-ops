@@ -1,3 +1,18 @@
+/**
+ * @module context/AlertsContext
+ * @description Shared React context for active alert state across all pages.
+ *
+ * AlertsProvider (mounted once in App.tsx) fetches active alerts on load,
+ * opens a single WebSocket connection to receive real-time push updates, and
+ * exposes the shared state via useAlerts().
+ *
+ * acknowledge() and resolve() use optimistic updates: state is updated
+ * immediately in the UI, then the API is called; any failure reverts the
+ * change so the UI stays consistent without a full re-fetch.
+ *
+ * refresh() is exposed so that pages can force a re-sync after resolving an
+ * incident (which causes the backend to also resolve linked alerts).
+ */
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { alertsApi } from '../services/api';
 import { Alert } from '@shared/types';
@@ -50,13 +65,26 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
   }, [fetchAlerts]);
 
   const acknowledge = async (id: string) => {
-    await alertsApi.acknowledge(id);
+    // Optimistic: flip acknowledged immediately so badge/dropdown updates without waiting for API
     setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, acknowledged: true } : a));
+    try {
+      await alertsApi.acknowledge(id);
+    } catch {
+      // Revert on failure
+      setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, acknowledged: false } : a));
+    }
   };
 
   const resolve = async (id: string) => {
-    await alertsApi.resolve(id);
+    // Optimistic: remove immediately so badge/dropdown updates without waiting for API
+    const removed = alerts.find((a) => a.id === id);
     setAlerts((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await alertsApi.resolve(id);
+    } catch {
+      // Revert on failure
+      if (removed) setAlerts((prev) => [removed, ...prev]);
+    }
   };
 
   const unread = alerts.filter((a) => !a.acknowledged).length;

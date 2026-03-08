@@ -1,3 +1,17 @@
+/**
+ * @module storage/schema
+ * @description Drizzle ORM PostgreSQL schema: table definitions, enums, and inferred types.
+ *
+ * Tables:
+ *   incidents   – AI-generated incident cards with root cause, fixes, correlations.
+ *   alert_rules – Configurable threshold rules evaluated every 2 minutes.
+ *   alerts      – Triggered alert instances; resolvedAt IS NULL = active.
+ *                 alert.incidentId FK links each alert to its incident so that
+ *                 resolving an incident can cascade to close its alerts.
+ *
+ * Indexes speed up the most common queries: createdAt (list order), status
+ * (filter), triggeredAt (recency check), ruleId (dedup), resolvedAt (active set).
+ */
 import {
   pgTable,
   pgEnum,

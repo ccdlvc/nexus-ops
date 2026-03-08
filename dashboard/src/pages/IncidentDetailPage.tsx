@@ -1,6 +1,23 @@
+/**
+ * @module pages/IncidentDetailPage
+ * @description Full-detail view for a single incident (/incidents/:id).
+ *
+ * Shows the complete incident card: header with severity/status badges,
+ * action buttons, root cause analysis, correlated sources with confidence
+ * scores, prioritised suggested fixes with optional CLI commands, and the
+ * AI-generated Markdown report (rendered after clicking Generate Report).
+ *
+ * Error handling:
+ *   - actionError   – Dismissable red banner for failed status/GitHub/Slack actions.
+ *   - reportError   – Dismissable red banner for failed report generation.
+ *
+ * After resolve/suppress, refreshAlerts() syncs the bell badge because the
+ * backend also resolves all linked alerts in the same DB transaction.
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { incidentsApi } from '../services/api';
+import { useAlerts } from '../hooks/useAlerts';
 import { IncidentCard as IncidentType } from '@shared/types';
 
 const SEV_COLOR: Record<string, string> = {
@@ -37,6 +54,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { refresh: refreshAlerts } = useAlerts();
   const [incident, setIncident] = useState<IncidentType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,12 +80,14 @@ export default function IncidentDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function doAction(key: string, fn: () => Promise<unknown>) {
+  async function doAction(key: string, fn: () => Promise<unknown>, closesIncident = false) {
     setActionLoading(key);
     setActionError(null);
     try {
       await fn();
       await load();
+      // After resolve/suppress: backend also resolves linked alerts; re-sync badge
+      if (closesIncident) await refreshAlerts();
     } catch (e) {
       const msg = (e as { response?: { data?: { error?: string } }; message?: string })
         ?.response?.data?.error ?? (e as Error).message ?? 'Action failed';
@@ -164,11 +184,11 @@ export default function IncidentDetailPage() {
         )}
         {incident.status !== 'resolved' && (
           <ActionBtn label="✅ Resolve" loading={actionLoading === 'res'} color='#238636'
-            onClick={() => doAction('res', () => incidentsApi.setStatus(incident.id, 'resolved'))} />
+            onClick={() => doAction('res', () => incidentsApi.setStatus(incident.id, 'resolved'), true)} />
         )}
         {incident.status !== 'suppressed' && (
           <ActionBtn label="🔕 Suppress" loading={actionLoading === 'sup'} color='#8b949e'
-            onClick={() => doAction('sup', () => incidentsApi.setStatus(incident.id, 'suppressed'))} />
+            onClick={() => doAction('sup', () => incidentsApi.setStatus(incident.id, 'suppressed'), true)} />
         )}
         <ActionBtn
           label={incident.githubIssueUrl ? '✓ Issue Created' : '🐙 Create GitHub Issue'}
