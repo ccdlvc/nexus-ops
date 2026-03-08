@@ -41,8 +41,10 @@ export default function IncidentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
   const [report, setReport] = useState<string | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -62,21 +64,29 @@ export default function IncidentDetailPage() {
 
   async function doAction(key: string, fn: () => Promise<unknown>) {
     setActionLoading(key);
+    setActionError(null);
     try {
       await fn();
-      await load(); // Refresh after action
-    } catch { /* ignore */ }
-    finally { setActionLoading(''); }
+      await load();
+    } catch (e) {
+      const msg = (e as { response?: { data?: { error?: string } }; message?: string })
+        ?.response?.data?.error ?? (e as Error).message ?? 'Action failed';
+      setActionError(msg);
+    } finally { setActionLoading(''); }
   }
 
   async function generateReport() {
     if (!id) return;
     setReportLoading(true);
+    setReportError(null);
     try {
       const r = await incidentsApi.generateReport(id);
       setReport(r.markdownReport);
-    } catch { /* ignore */ }
-    finally { setReportLoading(false); }
+    } catch (e) {
+      const msg = (e as { response?: { data?: { error?: string } }; message?: string })
+        ?.response?.data?.error ?? (e as Error).message ?? 'Failed to generate report';
+      setReportError(msg);
+    } finally { setReportLoading(false); }
   }
 
   if (loading) {
@@ -169,6 +179,20 @@ export default function IncidentDetailPage() {
         <ActionBtn label={report ? '📄 Regenerate Report' : '📄 Generate Report'} loading={reportLoading} color='#1f6feb'
           onClick={generateReport} />
       </div>
+
+      {/* Action error banner */}
+      {actionError && (
+        <div style={{ padding: '10px 14px', background: '#f8514922', border: '1px solid #f8514966', borderRadius: 6, marginBottom: 12, fontSize: 13, color: '#f85149', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Action failed: {actionError}</span>
+          <button onClick={() => setActionError(null)} style={{ background: 'none', border: 'none', color: '#f85149', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+        </div>
+      )}
+      {reportError && (
+        <div style={{ padding: '10px 14px', background: '#f8514922', border: '1px solid #f8514966', borderRadius: 6, marginBottom: 12, fontSize: 13, color: '#f85149', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Report failed: {reportError}</span>
+          <button onClick={() => setReportError(null)} style={{ background: 'none', border: 'none', color: '#f85149', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+        </div>
+      )}
 
       {incident.githubIssueUrl && (
         <a href={incident.githubIssueUrl} target="_blank" rel="noreferrer"
