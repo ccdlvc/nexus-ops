@@ -158,6 +158,26 @@ export const connectorsApi = {
     api.post(`/api/connectors/portainer/endpoints/${endpointId}/containers/${containerId}/stop`)
       .then((r) => r.data),
 
+  /** Start a stopped/exited container */
+  portainerStart: (endpointId: number, containerId: string) =>
+    api.post(`/api/connectors/portainer/endpoints/${endpointId}/containers/${containerId}/start`)
+      .then((r) => r.data),
+
+  /** Fetch recent container logs */
+  portainerContainerLogs: (endpointId: number, containerId: string, tail = 200) =>
+    api.get(`/api/connectors/portainer/endpoints/${endpointId}/containers/${containerId}/logs`, { params: { tail } })
+      .then((r) => (r.data.data as { logs: string }).logs),
+
+  /** Start a stopped stack */
+  portainerStackStart: (stackId: number, endpointId: number) =>
+    api.post(`/api/connectors/portainer/stacks/${stackId}/start`, null, { params: { endpointId } })
+      .then((r) => r.data),
+
+  /** Stop a running stack */
+  portainerStackStop: (stackId: number, endpointId: number) =>
+    api.post(`/api/connectors/portainer/stacks/${stackId}/stop`, null, { params: { endpointId } })
+      .then((r) => r.data),
+
   // Legacy
   portainerContainers: () =>
     api.get('/api/connectors/portainer/containers').then((r) => r.data.data as ContainerHealth[]),

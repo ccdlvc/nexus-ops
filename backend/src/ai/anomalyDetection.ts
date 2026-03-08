@@ -33,18 +33,21 @@ export class AnomalyDetector {
     const now = new Date().toISOString();
 
     for (const c of containers) {
+      const endpointName = c.portainer?.endpointName;
+      const serverLabel = endpointName ? ` on ${endpointName}` : '';
+
       if (c.memoryPercent > 95) {
-        results.push({ id: uuidv4(), detectedAt: now, metric: 'memoryPercent', value: c.memoryPercent, baseline: 60, deviation: ((c.memoryPercent - 60) / 60) * 100, severity: 'critical', source: 'portainer', description: `Container ${c.name} at ${c.memoryPercent.toFixed(1)}% memory — OOM imminent` });
+        results.push({ id: uuidv4(), detectedAt: now, metric: 'memoryPercent', value: c.memoryPercent, baseline: 60, deviation: ((c.memoryPercent - 60) / 60) * 100, severity: 'critical', source: 'portainer', description: `Container ${c.name}${serverLabel} at ${c.memoryPercent.toFixed(1)}% memory — OOM imminent`, resourceName: c.name, endpointName });
       } else if (c.memoryPercent > 80) {
-        results.push({ id: uuidv4(), detectedAt: now, metric: 'memoryPercent', value: c.memoryPercent, baseline: 60, deviation: ((c.memoryPercent - 60) / 60) * 100, severity: 'high', source: 'portainer', description: `Container ${c.name} at ${c.memoryPercent.toFixed(1)}% memory usage` });
+        results.push({ id: uuidv4(), detectedAt: now, metric: 'memoryPercent', value: c.memoryPercent, baseline: 60, deviation: ((c.memoryPercent - 60) / 60) * 100, severity: 'high', source: 'portainer', description: `Container ${c.name}${serverLabel} at ${c.memoryPercent.toFixed(1)}% memory usage`, resourceName: c.name, endpointName });
       }
 
       if (c.cpuPercent > 90) {
-        results.push({ id: uuidv4(), detectedAt: now, metric: 'cpuPercent', value: c.cpuPercent, baseline: 40, deviation: ((c.cpuPercent - 40) / 40) * 100, severity: 'high', source: 'portainer', description: `Container ${c.name} CPU at ${c.cpuPercent.toFixed(1)}%` });
+        results.push({ id: uuidv4(), detectedAt: now, metric: 'cpuPercent', value: c.cpuPercent, baseline: 40, deviation: ((c.cpuPercent - 40) / 40) * 100, severity: 'high', source: 'portainer', description: `Container ${c.name}${serverLabel} CPU at ${c.cpuPercent.toFixed(1)}%`, resourceName: c.name, endpointName });
       }
 
       if (c.restartCount > 5) {
-        results.push({ id: uuidv4(), detectedAt: now, metric: 'restartCount', value: c.restartCount, baseline: 0, deviation: Infinity, severity: 'critical', source: 'portainer', description: `Container ${c.name} has restarted ${c.restartCount} times — crash-loop suspected` });
+        results.push({ id: uuidv4(), detectedAt: now, metric: 'restartCount', value: c.restartCount, baseline: 0, deviation: Infinity, severity: 'critical', source: 'portainer', description: `Container ${c.name}${serverLabel} has restarted ${c.restartCount} times — crash-loop suspected`, resourceName: c.name, endpointName });
       }
     }
     return results;

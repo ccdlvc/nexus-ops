@@ -57,7 +57,7 @@ export class PortainerConnector {
   }
 
   /** Containers for a specific endpoint */
-  async getContainersForEndpoint(endpointId: number): Promise<ContainerHealth[]> {
+  async getContainersForEndpoint(endpointId: number, endpointName?: string): Promise<ContainerHealth[]> {
     try {
       const { data: containerList } = await this.client.get(
         `/api/endpoints/${endpointId}/docker/containers/json?all=true`
@@ -66,7 +66,7 @@ export class PortainerConnector {
         (containerList as Record<string, unknown>[]).map(async (c) => {
           const stats = await this.getContainerStats(endpointId, c.Id as string);
           const inspect = await this.inspectContainer(endpointId, c.Id as string);
-          return this.mapContainer(c, stats, inspect, endpointId);
+          return this.mapContainer(c, stats, inspect, endpointId, endpointName);
         })
       );
       return healthList;
@@ -122,6 +122,39 @@ export class PortainerConnector {
       return true;
     } catch (err) {
       logger.error(`Portainer stopContainer failed on endpoint ${endpointId}`, { containerId, err });
+      return false;
+    }
+  }
+
+  /** Start a stopped/exited container on a specific endpoint */
+  async startContainerOnEndpoint(endpointId: number, containerId: string): Promise<boolean> {
+    try {
+      await this.client.post(`/api/endpoints/${endpointId}/docker/containers/${containerId}/start`);
+      return true;
+    } catch (err) {
+      logger.error(`Portainer startContainer failed on endpoint ${endpointId}`, { containerId, err });
+      return false;
+    }
+  }
+
+  /** Start a stopped stack */
+  async startStackOnEndpoint(stackId: number, endpointId: number): Promise<boolean> {
+    try {
+      await this.client.post(`/api/stacks/${stackId}/start`, null, { params: { endpointId } });
+      return true;
+    } catch (err) {
+      logger.error(`Portainer startStack failed for stack ${stackId}`, { err });
+      return false;
+    }
+  }
+
+  /** Stop a running stack */
+  async stopStackOnEndpoint(stackId: number, endpointId: number): Promise<boolean> {
+    try {
+      await this.client.post(`/api/stacks/${stackId}/stop`, null, { params: { endpointId } });
+      return true;
+    } catch (err) {
+      logger.error(`Portainer stopStack failed for stack ${stackId}`, { err });
       return false;
     }
   }
@@ -194,6 +227,7 @@ export class PortainerConnector {
     stats: Record<string, unknown>,
     inspect: Record<string, unknown>,
     endpointId: number,
+    endpointName?: string,
   ): ContainerHealth {
     const cpu = this.calcCpuPercent(stats);
     const mem = this.calcMemory(stats);
@@ -216,7 +250,7 @@ export class PortainerConnector {
       networkRx: this.calcNetworkRx(stats),
       networkTx: this.calcNetworkTx(stats),
       created: new Date((c.Created as number) * 1000).toISOString(),
-      portainer: { endpointId, stackName },
+      portainer: { endpointId, endpointName, stackName },
     };
   }
 

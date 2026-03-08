@@ -79,12 +79,27 @@ export class AlertMonitor {
       const triggered = this.evaluateCondition(value, rule.condition, rule.threshold);
       if (!triggered) continue;
 
+      // Build a specific title and affected-services list for portainer alerts
+      const containerName = anomaly?.resourceName;
+      const serverName = anomaly?.endpointName;
+      const incidentTitle = (rule.source === 'portainer' && containerName)
+        ? `${rule.name}: ${containerName}${serverName ? ` on ${serverName}` : ''}`
+        : rule.name;
+      const affectedServices: string[] = (rule.source === 'portainer' && containerName)
+        ? [containerName, ...(serverName ? [serverName] : [])]
+        : [rule.source];
+
+      // For Portainer, dedup per container+rule so different containers don't suppress each other
+      const dedupKey = (rule.source === 'portainer' && containerName)
+        ? `${rule.id}:${containerName}`
+        : rule.id;
+
       // Avoid duplicate alerts (same rule in last 10 minutes)
       const recent = await db
         .select({ id: alerts.id })
         .from(alerts)
         .where(and(
-          eq(alerts.ruleId, rule.id),
+          eq(alerts.ruleId, dedupKey),
           isNull(alerts.resolvedAt),
           gt(alerts.triggeredAt, sql`now() - interval '10 minutes'`),
         ))
@@ -93,11 +108,11 @@ export class AlertMonitor {
 
       const alert: Alert = {
         id: uuidv4(),
-        ruleId: rule.id,
+        ruleId: dedupKey,
         ruleName: rule.name,
         severity: rule.severity,
         source: rule.source,
-        message: rule.message,
+        message: anomaly?.description ?? rule.message,
         value,
         threshold: rule.threshold,
         triggeredAt: new Date().toISOString(),
@@ -122,14 +137,14 @@ export class AlertMonitor {
 
         await tx.insert(incidents).values({
           id:              incId,
-          title:           alert.ruleName,
+          title:           incidentTitle,
           summary:         alert.message,
           severity:        alert.severity,
           status:          'open',
-          rootCause:       `${alert.ruleName} triggered on source "${alert.source}": measured value ${alert.value} exceeded threshold ${alert.threshold}. ${alert.message}`,
+          rootCause:       `${incidentTitle} triggered: measured value ${alert.value} exceeded threshold ${alert.threshold}. ${alert.message}`,
           fixes:           [],
           correlations:    [],
-          affectedServices:[alert.source],
+          affectedServices: affectedServices,
           tags:            [alert.source, alert.severity],
         }).onConflictDoNothing();
       });
@@ -161,13 +176,12 @@ export class AlertMonitor {
     if (!process.env.PORTAINER_URL) return [];
     try {
       const endpoints = await this.portainer.listEndpoints();
-      if (!endpoints.length) return [];
-      const envId = parseInt(process.env.PORTAINER_ENDPOINT ?? '0', 10);
-      const target = envId > 0
-        ? (endpoints.find((e) => e.id === envId) ?? endpoints.find((e) => e.status === 1))
-        : endpoints.find((e) => e.status === 1);
-      if (!target) return [];
-      return await this.portainer.getContainersForEndpoint(target.id);
+      const onlineEndpoints = endpoints.filter((e) => e.status === 1);
+      if (!onlineEndpoints.length) return [];
+      const perEndpoint = await Promise.all(
+        onlineEndpoints.map((ep) => this.portainer.getContainersForEndpoint(ep.id, ep.name))
+      );
+      return perEndpoint.flat();
     } catch { return []; }
   }
 

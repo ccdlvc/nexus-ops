@@ -324,6 +324,32 @@ router.post('/portainer/endpoints/:id/containers/:containerId/stop', async (req,
   res.json({ success: ok, timestamp: new Date().toISOString() });
 });
 
+/** Start a stopped/exited container on one endpoint */
+router.post('/portainer/endpoints/:id/containers/:containerId/start', async (req, res) => {
+  if (!portainerConfigured) return notConfigured(res, 'Portainer');
+  const id = parseInt(req.params.id, 10);
+  const ok = await portainer.startContainerOnEndpoint(id, req.params.containerId);
+  res.json({ success: ok, timestamp: new Date().toISOString() });
+});
+
+/** Start a stack (pass ?endpointId=) */
+router.post('/portainer/stacks/:stackId/start', async (req, res) => {
+  if (!portainerConfigured) return notConfigured(res, 'Portainer');
+  const stackId = parseInt(req.params.stackId, 10);
+  const endpointId = parseInt((req.query.endpointId as string) ?? '1', 10);
+  const ok = await portainer.startStackOnEndpoint(stackId, endpointId);
+  res.json({ success: ok, timestamp: new Date().toISOString() });
+});
+
+/** Stop a stack (pass ?endpointId=) */
+router.post('/portainer/stacks/:stackId/stop', async (req, res) => {
+  if (!portainerConfigured) return notConfigured(res, 'Portainer');
+  const stackId = parseInt(req.params.stackId, 10);
+  const endpointId = parseInt((req.query.endpointId as string) ?? '1', 10);
+  const ok = await portainer.stopStackOnEndpoint(stackId, endpointId);
+  res.json({ success: ok, timestamp: new Date().toISOString() });
+});
+
 // Legacy single-endpoint routes (backward compat)
 router.get('/portainer/containers', async (_req, res) => {
   if (!portainerConfigured) return notConfigured(res, 'Portainer');

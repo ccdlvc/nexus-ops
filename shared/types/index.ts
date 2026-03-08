@@ -64,6 +64,8 @@ export interface AnomalyResult {
   severity: Severity;
   source: DataSource;
   description: string;
+  resourceName?: string;    // container name, job name, service name
+  endpointName?: string;    // server / Portainer endpoint name
 }
 
 // ─── GitHub Actions ──────────────────────────────────────────────────────────
@@ -128,6 +130,7 @@ export interface ContainerHealth {
   created: string;
   portainer?: {
     endpointId: number;
+    endpointName?: string;   // server name for display in alerts
     stackName?: string;
   };
 }
