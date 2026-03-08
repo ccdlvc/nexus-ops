@@ -32,6 +32,7 @@ export default function Sidebar() {
     }}>
       <NavLink to="/dashboard" style={({ isActive }) => linkStyle(isActive)}>📊 Dashboard</NavLink>
       <NavLink to="/incidents" style={({ isActive }) => linkStyle(isActive)}>🚨 Incidents</NavLink>
+      <NavLink to="/ai" style={({ isActive }) => linkStyle(isActive)}>🤖 AI Assistant</NavLink>
       <NavLink to="/repos" style={({ isActive }) => linkStyle(isActive)}>🐙 GitHub Repos</NavLink>
       <NavLink to="/portainer" style={({ isActive }) => linkStyle(isActive)}>🐳 Portainer</NavLink>
       <NavLink to="/grafana" style={({ isActive }) => linkStyle(isActive)}>📊 Grafana</NavLink>

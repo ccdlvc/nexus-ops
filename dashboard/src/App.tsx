@@ -14,6 +14,7 @@ import AWSPage from './pages/AWSPage';
 import GCPPage from './pages/GCPPage';
 import AzurePage from './pages/AzurePage';
 import CloudCostPage from './pages/CloudCostPage';
+import AIAssistantPage from './pages/AIAssistantPage';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
                 <Route path="/gcp" element={<GCPPage />} />
                 <Route path="/azure" element={<AzurePage />} />
                 <Route path="/cloud-cost" element={<CloudCostPage />} />
+                <Route path="/ai" element={<AIAssistantPage />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>
             </main>
