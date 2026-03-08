@@ -6,21 +6,26 @@
  * variables (checked in priority order):
  *   - ANTHROPIC_API_KEY → uses Claude (default model: claude-opus-4-6)
  *   - OPENAI_API_KEY    → uses GPT-4o (default model: gpt-4o)
- *   - GEMINI_API_KEY    → uses Gemini (default model: gemini-1.5-pro)
+ *   - GEMINI_API_KEY    → uses Gemini via direct REST API (default model: gemini-1.5-flash)
  *   - none set          → stub mode (returns a JSON hint to configure a key)
+ *
+ * Gemini is called via the v1beta REST API with axios instead of the SDK
+ * to avoid version-compatibility issues with @google/generative-ai.
  *
  * Consumed by: RootCauseAnalyzer, AnomalyDetector, ReportGenerator, query route.
  */
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import axios from 'axios';
 import { QueryResponse, DataSource } from '../../../shared/types';
 import { logger } from '../utils/logger';
+
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export class AIAgent {
   private anthropic?: Anthropic;
   private openai?: OpenAI;
-  private gemini?: GoogleGenerativeAI;
+  private geminiApiKey?: string;
   private model: string;
 
   constructor() {
@@ -33,9 +38,9 @@ export class AIAgent {
       this.model = process.env.OPENAI_MODEL ?? 'gpt-4o';
       logger.info('AI Agent using OpenAI GPT-4o');
     } else if (process.env.GEMINI_API_KEY) {
-      this.gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      this.geminiApiKey = process.env.GEMINI_API_KEY;
       this.model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
-      logger.info('AI Agent using Google Gemini');
+      logger.info(`AI Agent using Google Gemini (${this.model})`);
     } else {
       this.model = 'stub';
       logger.warn('No AI API key configured — responses will be stubbed');
@@ -72,16 +77,18 @@ export class AIAgent {
         return text;
       }
 
-      if (this.gemini) {
-        const model = this.gemini.getGenerativeModel({
-          model: this.model,
-          systemInstruction: systemPrompt,
-        });
-        const result = await model.generateContent({
+      if (this.geminiApiKey) {
+        const url = `${GEMINI_API_BASE}/${this.model}:generateContent`;
+        const resp = await axios.post(url, {
+          system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: 'user', parts: [{ text: userMessage }] }],
           generationConfig: { maxOutputTokens: maxTokens },
+        }, {
+          params: { key: this.geminiApiKey },
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 60_000,
         });
-        const text = result.response.text();
+        const text: string = resp.data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
         logger.debug(`Gemini response in ${Date.now() - start}ms (${text.length} chars)`);
         return text;
       }
