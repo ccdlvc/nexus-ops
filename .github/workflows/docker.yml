@@ -6,11 +6,15 @@ on:
     tags: ['v*.*.*']
   pull_request:
     branches: [main]
-  workflow_dispatch:        # allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 env:
-  BACKEND_IMAGE: ccdlvc/nexus-ops-backend
-  DASHBOARD_IMAGE: ccdlvc/nexus-ops-dashboard
+  # Docker Hub
+  DH_BACKEND:   ccdlvc/nexus-ops-backend
+  DH_DASHBOARD: ccdlvc/nexus-ops-dashboard
+  # GitHub Container Registry
+  GH_BACKEND:   ghcr.io/ccdlvc/nexus-ops-backend
+  GH_DASHBOARD: ghcr.io/ccdlvc/nexus-ops-dashboard
 
 jobs:
   # ── Backend ───────────────────────────────────────────────────────────────
@@ -19,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write   # needed for ghcr.io push
 
     steps:
       - name: Checkout
@@ -37,11 +42,21 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.BACKEND_IMAGE }}
+          images: |
+            ${{ env.DH_BACKEND }}
+            ${{ env.GH_BACKEND }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -66,6 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write   # needed for ghcr.io push
 
     steps:
       - name: Checkout
@@ -84,11 +100,21 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DASHBOARD_IMAGE }}
+          images: |
+            ${{ env.DH_DASHBOARD }}
+            ${{ env.GH_DASHBOARD }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -116,11 +142,11 @@ jobs:
     steps:
       - name: Write summary
         run: |
-          echo "### Docker images published 🐳" >> $GITHUB_STEP_SUMMARY
+          echo "### Docker images published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Image | Tag |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|-----|" >> $GITHUB_STEP_SUMMARY
-          echo "| \`${{ env.BACKEND_IMAGE }}\` | \`latest\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| \`${{ env.DASHBOARD_IMAGE }}\` | \`latest\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Registry | Backend | Dashboard |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|---------|-----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Hub | \`${{ env.DH_BACKEND }}\` | \`${{ env.DH_DASHBOARD }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| GHCR | \`${{ env.GH_BACKEND }}\` | \`${{ env.GH_DASHBOARD }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY

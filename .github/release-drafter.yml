@@ -1,0 +1,50 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+# Auto-bump version based on PR labels
+version-resolver:
+  major:
+    labels: ['breaking-change']
+  minor:
+    labels: ['feature', 'enhancement']
+  patch:
+    labels: ['bug', 'fix', 'bugfix', 'patch']
+  default: patch
+
+categories:
+  - title: 'Breaking Changes'
+    labels: ['breaking-change']
+  - title: 'New Features'
+    labels: ['feature', 'enhancement']
+  - title: 'Bug Fixes'
+    labels: ['bug', 'fix', 'bugfix']
+  - title: 'New Connectors / Integrations'
+    labels: ['connector', 'integration']
+  - title: 'Performance'
+    labels: ['performance']
+  - title: 'Documentation'
+    labels: ['documentation', 'docs']
+  - title: 'Maintenance'
+    labels: ['chore', 'refactor', 'dependencies']
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  ## Docker images
+
+  ```bash
+  # Docker Hub
+  docker pull ccdlvc/nexus-ops-backend:$RESOLVED_VERSION
+  docker pull ccdlvc/nexus-ops-dashboard:$RESOLVED_VERSION
+
+  # GitHub Container Registry
+  docker pull ghcr.io/ccdlvc/nexus-ops-backend:$RESOLVED_VERSION
+  docker pull ghcr.io/ccdlvc/nexus-ops-dashboard:$RESOLVED_VERSION
+  ```
+
+  **Full Changelog**: $PREVIOUS_TAG...v$RESOLVED_VERSION

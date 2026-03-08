@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write   # needed to create GitHub Releases
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for release notes
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true   # auto-generate from merged PRs + commits
+          make_latest: true
+          body: |
+            ## Docker images
+
+            Pull the latest images for this release:
+
+            **Docker Hub**
+            ```bash
+            docker pull ccdlvc/nexus-ops-backend:${{ github.ref_name }}
+            docker pull ccdlvc/nexus-ops-dashboard:${{ github.ref_name }}
+            ```
+
+            **GitHub Container Registry**
+            ```bash
+            docker pull ghcr.io/ccdlvc/nexus-ops-backend:${{ github.ref_name }}
+            docker pull ghcr.io/ccdlvc/nexus-ops-dashboard:${{ github.ref_name }}
+            ```
+
+            ## Quick start
+
+            ```bash
+            git clone https://github.com/ccdlvc/nexus-ops.git
+            cd nexus-ops
+            cp backend/.env.example backend/.env
+            # fill in backend/.env
+            docker compose up -d
+            ```
+
+            See the [README](https://github.com/ccdlvc/nexus-ops#readme) for full setup instructions.
