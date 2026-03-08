@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'nexus-ops'
+
+scrape_configs:
+  # Nexus Ops backend — exposes prom-client metrics at /metrics
+  - job_name: 'nexus-backend'
+    static_configs:
+      - targets: ['nexus-backend:4000']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Host OS metrics via node_exporter
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['nexus-node-exporter:9100']
+    scrape_interval: 15s
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

@@ -1,0 +1,147 @@
+version: '3.9'
+
+services:
+  nexus-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: nexus-ops-backend:latest
+    container_name: nexus-backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - LOG_LEVEL=info
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-opus-4-6}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - JENKINS_URL=${JENKINS_URL}
+      - JENKINS_USER=${JENKINS_USER}
+      - JENKINS_TOKEN=${JENKINS_TOKEN}
+      - KIBANA_URL=${KIBANA_URL}
+      - KIBANA_USER=${KIBANA_USER}
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD}
+      - KIBANA_INDEX=${KIBANA_INDEX:-logs-*}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_OWNER=${GITHUB_OWNER}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - PORTAINER_URL=${PORTAINER_URL}
+      - PORTAINER_TOKEN=${PORTAINER_TOKEN}
+      - PORTAINER_ENDPOINT=${PORTAINER_ENDPOINT:-0}
+      - PROMETHEUS_URL=${PROMETHEUS_URL:-http://prometheus:9090}
+      - PROMETHEUS_USER=${PROMETHEUS_USER}
+      - PROMETHEUS_PASSWORD=${PROMETHEUS_PASSWORD}
+      - GRAFANA_URL=${GRAFANA_URL:-http://grafana:3000}
+      - GRAFANA_TOKEN=${GRAFANA_TOKEN}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL}
+      - DASHBOARD_URL=${DASHBOARD_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - DB_PATH=/app/data/nexus.db
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GCP_CLIENT_EMAIL=${GCP_CLIENT_EMAIL}
+      - GCP_PRIVATE_KEY=${GCP_PRIVATE_KEY}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
+      - AZURE_LOG_ANALYTICS_WORKSPACE_ID=${AZURE_LOG_ANALYTICS_WORKSPACE_ID}
+    volumes:
+      - nexus-data:/app/data
+      - nexus-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - nexus-net
+
+  nexus-dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    image: nexus-ops-dashboard:latest
+    container_name: nexus-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://nexus-backend:4000
+    depends_on:
+      nexus-backend:
+        condition: service_healthy
+    networks:
+      - nexus-net
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: nexus-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - nexus-net
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: nexus-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - nexus-net
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: nexus-node-exporter
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - nexus-net
+
+volumes:
+  nexus-data:
+  nexus-logs:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  nexus-net:
+    driver: bridge

@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: Nexus Ops
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
