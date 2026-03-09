@@ -9,8 +9,10 @@
  *   - GEMINI_API_KEY    → uses Gemini via direct REST API (default model: gemini-1.5-flash)
  *   - none set          → stub mode (returns a JSON hint to configure a key)
  *
- * Gemini is called via the v1beta REST API with axios instead of the SDK
- * to avoid version-compatibility issues with @google/generative-ai.
+ * Gemini is called via the REST API with axios instead of the SDK to avoid
+ * version-compatibility issues. Endpoint version is controlled by GEMINI_API_VERSION
+ * (default: v1beta, which supports all models including preview/experimental ones
+ * such as gemini-2.0-flash and gemini-2.5-flash). Set to v1 only for stable GA models.
  *
  * Consumed by: RootCauseAnalyzer, AnomalyDetector, ReportGenerator, query route.
  */
@@ -20,7 +22,10 @@ import axios from 'axios';
 import { QueryResponse, DataSource } from '../../../shared/types';
 import { logger } from '../utils/logger';
 
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+// v1beta is the default: it hosts all models including preview/experimental ones.
+// Set GEMINI_API_VERSION=v1 in env only if you specifically need stable-API-only models.
+const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION ?? 'v1beta';
+const GEMINI_API_BASE = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models`;
 
 export class AIAgent {
   private anthropic?: Anthropic;

@@ -87,13 +87,22 @@ router.post('/', async (req: Request, res: Response) => {
               if (online.length === 0) {
                 containers = [];
               } else {
-                const perEndpoint = await Promise.all(online.map((ep) => p.getContainersForEndpoint(ep.id, ep.name)));
+                // Isolate failures per-endpoint so one bad endpoint doesn't drop all data
+                const perEndpoint = await Promise.all(
+                  online.map((ep) => p.getContainersForEndpoint(ep.id, ep.name).catch(() => [] as ContainerHealth[])),
+                );
                 containers = perEndpoint.flat();
               }
             } else {
               containers = await p.getContainersForEndpoint(requestedId);
             }
-            context.push({ source: 'portainer', summary: `${containers.length} containers. Unhealthy: ${containers.filter((c) => c.health === 'unhealthy').length}, High mem: ${containers.filter((c) => c.memoryPercent > 80).length}`, data: containers });
+            // Prioritise signal-rich containers; cap at 30 to keep AI payload small
+            const unhealthy = containers.filter((c) => c.health === 'unhealthy');
+            const highMem   = containers.filter((c) => c.health !== 'unhealthy' && c.memoryPercent > 50);
+            const exited    = containers.filter((c) => c.status !== 'running' && c.health !== 'unhealthy');
+            const rest      = containers.filter((c) => c.status === 'running' && c.health !== 'unhealthy' && c.memoryPercent <= 50);
+            const notable   = [...unhealthy, ...highMem, ...exited, ...rest].slice(0, 30);
+            context.push({ source: 'portainer', summary: `${containers.length} containers. Unhealthy: ${unhealthy.length}, High mem (>50%): ${highMem.length}, Exited: ${exited.length}`, data: notable });
             break;
           }
           case 'aws': {
